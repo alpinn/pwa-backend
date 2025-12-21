@@ -80,7 +80,6 @@ func (r *TransactionRepository) GetByIDWithItems(id string) (*models.Transaction
 		return nil, err
 	}
 
-	// Fetch items
 	itemsQuery := `SELECT id, transaction_id, product_id, product_name, quantity, price, subtotal, user_id, created_at 
 	              FROM transaction_items WHERE transaction_id = $1 ORDER BY created_at DESC`
 	

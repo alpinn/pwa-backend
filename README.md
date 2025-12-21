@@ -71,7 +71,6 @@ createdb pwa_db
 Jalankan SQL migrations untuk membuat schema:
 ```bash
 psql -U postgres -d pwa_db -f migrations/001_init_schema.sql
-psql -U postgres -d pwa_db -f migrations/002_add_user_id_transaction_item.sql
 ```
 
 **Step 3: Run Application**

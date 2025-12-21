@@ -54,8 +54,8 @@ func (r *ProductRepository) GetByID(id string) (*models.Product, error) {
 	return &p, nil
 }
 
-func (r *ProductRepository) DeductStock(tx *sql.Tx, productID string, quantity int) error {
-	query := `UPDATE products SET stock = stock - $1, updated_at = NOW() WHERE id = $2`
-	_, err := tx.Exec(query, quantity, productID)
+func (r *ProductRepository) UpdateStockByQty(tx *sql.Tx, productID string, qty int) error {
+	query := `UPDATE products SET stock = stock + $1, updated_at = NOW() WHERE id = $2`
+	_, err := tx.Exec(query, qty, productID)
 	return err
 }

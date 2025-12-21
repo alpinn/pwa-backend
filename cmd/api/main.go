@@ -42,11 +42,12 @@ func main() {
 	userRepo := repositories.NewUserRepository(db)
 	productRepo := repositories.NewProductRepository(db)
 	transactionRepo := repositories.NewTransactionRepository(db)
+	stockEventRepo := repositories.NewStockEventRepository(db)
 
 	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret)
 	productHandler := handlers.NewProductHandler(productRepo)
-	transactionHandler := handlers.NewTransactionHandler(transactionRepo, productRepo)
-
+	transactionHandler := handlers.NewTransactionHandler(transactionRepo, productRepo, stockEventRepo)
+	stockEventHandler := handlers.NewStockEventHandler(stockEventRepo, productRepo)
 	router := gin.Default()
 
 	router.Use(func(c *gin.Context) {
@@ -85,6 +86,10 @@ func main() {
 			protected.GET("/transactions/:id", transactionHandler.GetTransaction)
 			protected.POST("/transactions/checkout", transactionHandler.Checkout)
 			protected.PUT("/transactions/:id/status", transactionHandler.UpdateStatus)
+
+			protected.POST("/stock-events", stockEventHandler.CreateStockEvent)
+			protected.GET("/stock-events", stockEventHandler.GetAllStockEvents)
+			protected.GET("/stock-events/product/:product_id", stockEventHandler.GetStockEventsByProduct)
 		}
 	}
 

@@ -1,60 +1,76 @@
-CREATE TABLE IF NOT EXISTS users (
-    id VARCHAR(36) PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'user',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+CREATE SCHEMA "public";
+CREATE TABLE "products" (
+	"id" varchar(36) PRIMARY KEY,
+	"name" varchar(100) NOT NULL,
+	"description" text,
+	"price" numeric(10, 2) NOT NULL,
+	"stock" integer DEFAULT 0 NOT NULL,
+	"image_url" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
-
-CREATE TABLE IF NOT EXISTS products (
-    id VARCHAR(36) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    price DECIMAL(10, 2) NOT NULL,
-    stock INTEGER NOT NULL DEFAULT 0,
-    image_url TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+CREATE TABLE "stock_events" (
+	"id" varchar(36) PRIMARY KEY,
+	"product_id" varchar(36) NOT NULL,
+	"qty" integer NOT NULL,
+	"type" varchar(20) NOT NULL,
+	"source" varchar(20) NOT NULL,
+	"transaction_id" varchar(36),
+	"user_id" varchar(36),
+	"device_id" varchar(100),
+	"note" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "stock_events_source_check" CHECK (CHECK (((source)::text = ANY ((ARRAY['pos'::character varying, 'dashboard'::character varying, 'online'::character varying])::text[])))),
+	CONSTRAINT "stock_events_type_check" CHECK (CHECK (((type)::text = ANY ((ARRAY['sale'::character varying, 'restock'::character varying, 'reject'::character varying, 'adjustment'::character varying, 'opening_stock'::character varying])::text[]))))
 );
-
-CREATE TABLE IF NOT EXISTS transactions (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL REFERENCES users(id),
-    total_amount DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+CREATE TABLE "transaction_items" (
+	"id" varchar(36) PRIMARY KEY,
+	"transaction_id" varchar(36) NOT NULL,
+	"product_id" varchar(36) NOT NULL,
+	"product_name" varchar(100) NOT NULL,
+	"quantity" integer NOT NULL,
+	"price" numeric(10, 2) NOT NULL,
+	"subtotal" numeric(10, 2) NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"user_id" varchar(36)
 );
-
-CREATE TABLE IF NOT EXISTS transaction_items (
-    id VARCHAR(36) PRIMARY KEY,
-    transaction_id VARCHAR(36) NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
-    product_id VARCHAR(36) NOT NULL REFERENCES products(id),
-    product_name VARCHAR(100) NOT NULL,
-    quantity INTEGER NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
-    subtotal DECIMAL(10, 2) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+CREATE TABLE "transactions" (
+	"id" varchar(36) PRIMARY KEY,
+	"user_id" varchar(36) NOT NULL,
+	"total_amount" numeric(10, 2) NOT NULL,
+	"status" varchar(20) DEFAULT 'pending' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
-
-CREATE INDEX idx_transactions_user_id ON transactions(user_id);
-CREATE INDEX idx_transactions_status ON transactions(status);
-CREATE INDEX idx_transaction_items_transaction_id ON transaction_items(transaction_id);
-CREATE INDEX idx_products_name ON products(name);
-
-INSERT INTO users (id, username, password, name, role, created_at, updated_at) VALUES
-('user-001', 'admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin User', 'admin', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO products (id, name, description, price, stock, image_url, created_at, updated_at) VALUES
-('prod-001', 'Nasi Goreng', 'Nasi goreng spesial dengan telur', 25000, 100, 'https://via.placeholder.com/150', NOW(), NOW()),
-('prod-002', 'Mie Goreng', 'Mie goreng pedas', 20000, 80, 'https://via.placeholder.com/150', NOW(), NOW()),
-('prod-003', 'Es Teh Manis', 'Es teh manis segar', 5000, 200, 'https://via.placeholder.com/150', NOW(), NOW()),
-('prod-004', 'Es Jeruk', 'Es jeruk peras segar', 7000, 150, 'https://via.placeholder.com/150', NOW(), NOW()),
-('prod-005', 'Ayam Bakar', 'Ayam bakar bumbu kecap', 35000, 50, 'https://via.placeholder.com/150', NOW(), NOW()),
-('prod-006', 'Sate Ayam', 'Sate ayam 10 tusuk', 30000, 60, 'https://via.placeholder.com/150', NOW(), NOW()),
-('prod-007', 'Gado-gado', 'Gado-gado sayur lengkap', 15000, 40, 'https://via.placeholder.com/150', NOW(), NOW()),
-('prod-008', 'Soto Ayam', 'Soto ayam kuah kuning', 22000, 70, 'https://via.placeholder.com/150', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
+CREATE TABLE "users" (
+	"id" varchar(36) PRIMARY KEY,
+	"username" varchar(50) NOT NULL CONSTRAINT "users_username_key" UNIQUE,
+	"password" varchar(255) NOT NULL,
+	"name" varchar(100) NOT NULL,
+	"role" varchar(20) DEFAULT 'user' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+ALTER TABLE "stock_events" ADD CONSTRAINT "fk_stock_events_product" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE CASCADE;
+ALTER TABLE "stock_events" ADD CONSTRAINT "fk_stock_events_transaction" FOREIGN KEY ("transaction_id") REFERENCES "transactions"("id") ON DELETE SET NULL;
+ALTER TABLE "stock_events" ADD CONSTRAINT "fk_stock_events_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL;
+ALTER TABLE "transaction_items" ADD CONSTRAINT "transaction_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id");
+ALTER TABLE "transaction_items" ADD CONSTRAINT "transaction_items_transaction_id_fkey" FOREIGN KEY ("transaction_id") REFERENCES "transactions"("id") ON DELETE CASCADE;
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id");
+CREATE INDEX "idx_products_name" ON "products" ("name");
+CREATE UNIQUE INDEX "products_pkey" ON "products" ("id");
+CREATE INDEX "idx_stock_events_created_at" ON "stock_events" ("created_at");
+CREATE INDEX "idx_stock_events_device_id" ON "stock_events" ("device_id");
+CREATE INDEX "idx_stock_events_product_created" ON "stock_events" ("product_id","created_at");
+CREATE INDEX "idx_stock_events_product_id" ON "stock_events" ("product_id");
+CREATE INDEX "idx_stock_events_transaction_id" ON "stock_events" ("transaction_id");
+CREATE INDEX "idx_stock_events_type" ON "stock_events" ("type");
+CREATE UNIQUE INDEX "stock_events_pkey" ON "stock_events" ("id");
+CREATE INDEX "idx_transaction_items_transaction_id" ON "transaction_items" ("transaction_id");
+CREATE INDEX "idx_transaction_items_user_id" ON "transaction_items" ("user_id");
+CREATE UNIQUE INDEX "transaction_items_pkey" ON "transaction_items" ("id");
+CREATE INDEX "idx_transactions_status" ON "transactions" ("status");
+CREATE INDEX "idx_transactions_user_id" ON "transactions" ("user_id");
+CREATE UNIQUE INDEX "transactions_pkey" ON "transactions" ("id");
+CREATE UNIQUE INDEX "users_pkey" ON "users" ("id");
+CREATE UNIQUE INDEX "users_username_key" ON "users" ("username");

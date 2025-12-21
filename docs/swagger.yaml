@@ -20,6 +20,36 @@ definitions:
     required:
     - items
     type: object
+  models.CreateStockEventRequest:
+    properties:
+      device_id:
+        type: string
+      note:
+        type: string
+      product_id:
+        type: string
+      qty:
+        type: integer
+      source:
+        enum:
+        - pos
+        - dashboard
+        - online
+        type: string
+      type:
+        enum:
+        - sale
+        - restock
+        - reject
+        - adjustment
+        - opening_stock
+        type: string
+    required:
+    - product_id
+    - qty
+    - source
+    - type
+    type: object
   models.LoginRequest:
     properties:
       password:
@@ -54,6 +84,32 @@ definitions:
       stock:
         type: integer
       updated_at:
+        type: string
+    type: object
+  models.StockEvent:
+    properties:
+      created_at:
+        type: string
+      device_id:
+        type: string
+      id:
+        type: string
+      note:
+        type: string
+      product_id:
+        type: string
+      qty:
+        description: Positive or negative
+        type: integer
+      source:
+        description: pos, dashboard, online
+        type: string
+      transaction_id:
+        type: string
+      type:
+        description: sale, restock, reject, adjustment, opening_stock
+        type: string
+      user_id:
         type: string
     type: object
   models.Transaction:
@@ -214,6 +270,92 @@ paths:
       summary: Get product by ID
       tags:
       - products
+  /stock-events:
+    get:
+      description: Get all stock events with pagination
+      parameters:
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockEvent'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all stock events
+      tags:
+      - stock_events
+    post:
+      consumes:
+      - application/json
+      description: Create stock event (restock, adjustment, etc). Stock will be updated
+        automatically.
+      parameters:
+      - description: Stock event data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateStockEventRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.StockEvent'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create stock event
+      tags:
+      - stock_events
+  /stock-events/product/{product_id}:
+    get:
+      description: Get stock event history for a specific product
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: string
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockEvent'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get stock events by product
+      tags:
+      - stock_events
   /transactions/{id}:
     get:
       consumes:
@@ -294,7 +436,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create new transaction with stock validation
+      description: Create transaction and deduct stock via stock_events
       parameters:
       - description: Checkout items
         in: body
@@ -311,12 +453,6 @@ paths:
             $ref: '#/definitions/models.Transaction'
         "400":
           description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
           schema:
             additionalProperties:
               type: string

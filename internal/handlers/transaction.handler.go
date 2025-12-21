@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"pwa-backend/internal/models"
 	"pwa-backend/internal/repositories"
@@ -12,18 +13,20 @@ import (
 type TransactionHandler struct {
 	transactionRepo *repositories.TransactionRepository
 	productRepo     *repositories.ProductRepository
+	stockEventRepo  *repositories.StockEventRepository
 }
 
-func NewTransactionHandler(transactionRepo *repositories.TransactionRepository, productRepo *repositories.ProductRepository) *TransactionHandler {
+func NewTransactionHandler(transactionRepo *repositories.TransactionRepository, productRepo *repositories.ProductRepository, stockEventRepo *repositories.StockEventRepository) *TransactionHandler {
 	return &TransactionHandler{
 		transactionRepo: transactionRepo,
 		productRepo:     productRepo,
+		stockEventRepo:  stockEventRepo,
 	}
 }
 
 // Checkout godoc
 // @Summary Checkout transaction
-// @Description Create new transaction with stock validation
+// @Description Create transaction and deduct stock via stock_events
 // @Tags transactions
 // @Accept json
 // @Produce json
@@ -31,7 +34,6 @@ func NewTransactionHandler(transactionRepo *repositories.TransactionRepository, 
 // @Param request body models.CheckoutRequest true "Checkout items"
 // @Success 201 {object} models.Transaction
 // @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
 // @Router /transactions/checkout [post]
 func (h *TransactionHandler) Checkout(c *gin.Context) {
 	var req models.CheckoutRequest
@@ -65,11 +67,6 @@ func (h *TransactionHandler) Checkout(c *gin.Context) {
 			return
 		}
 
-		if err := h.productRepo.DeductStock(tx, product.ID, item.Quantity); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
-			return
-		}
-
 		subtotal := product.Price * float64(item.Quantity)
 		totalAmount += subtotal
 
@@ -100,6 +97,30 @@ func (h *TransactionHandler) Checkout(c *gin.Context) {
 	if err := h.transactionRepo.CreateItems(tx, items); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction items"})
 		return
+	}
+
+	for _, item := range req.Items {
+		stockEvent := &models.StockEvent{
+			ID:            generateID(),
+			ProductID:     item.ProductID,
+			Qty:           -item.Quantity, 
+			Type:          "sale",
+			Source:        "pos",
+			TransactionID: &transactionID,
+			UserID:        &userID,
+			Note:          fmt.Sprintf("Sale from transaction %s", transactionID),
+			CreatedAt:     time.Now(),
+		}
+
+		if err := h.stockEventRepo.Create(tx, stockEvent); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create stock event: " + err.Error()})
+			return
+		}
+
+		if err := h.productRepo.UpdateStockByQty(tx, item.ProductID, -item.Quantity); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product stock: " + err.Error()})
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

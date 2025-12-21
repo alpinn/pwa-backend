@@ -141,6 +141,140 @@
                 }
             }
         },
+        "/stock-events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all stock events with pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stock_events"
+                ],
+                "summary": "Get all stock events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.StockEvent"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create stock event (restock, adjustment, etc). Stock will be updated automatically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stock_events"
+                ],
+                "summary": "Create stock event",
+                "parameters": [
+                    {
+                        "description": "Stock event data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateStockEventRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockEvent"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-events/product/{product_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get stock event history for a specific product",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stock_events"
+                ],
+                "summary": "Get stock events by product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.StockEvent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/transactions/checkout": {
             "post": {
                 "security": [
@@ -148,7 +282,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create new transaction with stock validation",
+                "description": "Create transaction and deduct stock via stock_events",
                 "consumes": [
                     "application/json"
                 ],
@@ -179,15 +313,6 @@
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -349,6 +474,47 @@
                 }
             }
         },
+        "models.CreateStockEventRequest": {
+            "type": "object",
+            "required": [
+                "product_id",
+                "qty",
+                "source",
+                "type"
+            ],
+            "properties": {
+                "device_id": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "qty": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "pos",
+                        "dashboard",
+                        "online"
+                    ]
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "sale",
+                        "restock",
+                        "reject",
+                        "adjustment",
+                        "opening_stock"
+                    ]
+                }
+            }
+        },
         "models.LoginRequest": {
             "type": "object",
             "required": [
@@ -400,6 +566,44 @@
                     "type": "integer"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.StockEvent": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "device_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "qty": {
+                    "description": "Positive or negative",
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "pos, dashboard, online",
+                    "type": "string"
+                },
+                "transaction_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "sale, restock, reject, adjustment, opening_stock",
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
