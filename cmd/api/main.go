@@ -69,12 +69,14 @@ func main() {
 	})
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	router.GET("/.well-known/jwks.json", authHandler.JWKS)
 
 	v1 := router.Group("/api/v1")
 	{
 		auth := v1.Group("/auth")
 		{
 			auth.POST("/login", authHandler.Login)
+			auth.GET("/powersync", authHandler.PowerSyncAuth) // PowerSync auth endpoint
 		}
 
 		protected := v1.Group("")
