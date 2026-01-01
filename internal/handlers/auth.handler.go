@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/base64"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -111,6 +112,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) JWKS(c *gin.Context) {
 	keyBytes := []byte(h.jwtSecret)
 	encoded := base64.RawURLEncoding.EncodeToString(keyBytes)
+
+	log.Printf("JWKS Endpoint Called - KID: %s, Secret (base64): %s", "powersync-key", encoded)
 
 	jwks := JWKSResponse{
 		Keys: []JWK{
