@@ -43,6 +43,12 @@ go mod tidy
 
 Cara paling mudah untuk menjalankan project beserta database:
 
+**Step 1: Build Docker Image**
+```bash
+docker-compose build
+```
+
+**Step 2: Start Services**
 ```bash
 docker-compose up -d
 ```
