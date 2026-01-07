@@ -1,14 +1,17 @@
 package middleware
 
 import (
+	"database/sql"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+
+	"pwa-backend/internal/repositories"
 )
 
-func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
+func AuthMiddleware(jwtSecret string, sessionRepo *repositories.UserSessionRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -17,12 +20,10 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		// Auto-add "Bearer " jika belum ada
 		var tokenString string
 		if strings.HasPrefix(authHeader, "Bearer ") {
 			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
 		} else {
-			// Jika tidak ada "Bearer ", anggap langsung token
 			tokenString = authHeader
 		}
 
@@ -40,7 +41,28 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			c.Set("user_id", claims["user_id"])
+			userID := claims["user_id"]
+			sessionID := claims["sid"]
+
+			// Validate session if present
+			if sessionID != nil {
+				isValid, err := sessionRepo.IsSessionValid(sessionID.(string))
+				if err != nil && err != sql.ErrNoRows {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate session"})
+					c.Abort()
+					return
+				}
+
+				if !isValid {
+					c.JSON(http.StatusUnauthorized, gin.H{"error": "Session invalid or revoked"})
+					c.Abort()
+					return
+				}
+
+				c.Set("session_id", sessionID.(string))
+			}
+
+			c.Set("user_id", userID)
 			c.Set("username", claims["username"])
 			c.Set("role", claims["role"])
 		}

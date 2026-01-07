@@ -40,11 +40,13 @@ func main() {
 	}
 
 	userRepo := repositories.NewUserRepository(db)
+	userSessionRepo := repositories.NewUserSessionRepository(db)
 	productRepo := repositories.NewProductRepository(db)
 	transactionRepo := repositories.NewTransactionRepository(db)
 	stockEventRepo := repositories.NewStockEventRepository(db)
 
-	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret)
+	jwtConfig := config.NewJWTConfig(os.Getenv("JWT_SECRET"))
+	authHandler := handlers.AuthHandler(userRepo, userSessionRepo, jwtConfig)
 	productHandler := handlers.NewProductHandler(productRepo)
 	transactionHandler := handlers.NewTransactionHandler(transactionRepo, productRepo, stockEventRepo)
 	stockEventHandler := handlers.NewStockEventHandler(stockEventRepo, productRepo)
@@ -69,19 +71,24 @@ func main() {
 	})
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	router.GET("/.well-known/jwks.json", authHandler.JWKS)
 
 	v1 := router.Group("/api/v1")
 	{
+		v1.GET("/.well-known/jwks.json", authHandler.JWKS)
+
 		auth := v1.Group("/auth")
 		{
+			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
-			auth.GET("/powersync", authHandler.PowerSyncAuth) // PowerSync auth endpoint
+			auth.GET("/powersync", authHandler.PowerSyncAuth)
 		}
 
 		protected := v1.Group("")
-		protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		protected.Use(middleware.AuthMiddleware(cfg.JWTSecret, userSessionRepo))
 		{
+			protected.GET("/auth/me", authHandler.Me)
+			protected.POST("/auth/logout", authHandler.Logout)
+
 			protected.GET("/products", productHandler.GetProducts)
 			protected.GET("/products/:id", productHandler.GetProductByID)
 
